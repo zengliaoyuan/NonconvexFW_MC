@@ -1,4 +1,10 @@
-clear;
+function [historyIF_0Inf,history_fw_bst,history_afw_bst,scale]=runcode_movLens_10M(sigma,mu,time_limit)
+
+%% Inputs:
+%   mu: the parameter of the DC regularizer in the constraint
+%   sigma: the right hand in the constraint; determined by the file find_delta_asIF.m, which is the same as the 
+%               cross-validation code for learning delta in the InFaceExtendedFW_MatrixCompletion solver
+%   time_limit: the maximal computational time allowed
 
 %% download the movielens zip file;
 dir_exist = exist('ml-10m', 'dir');  % check the existence of the folder ml-10m
@@ -17,7 +23,7 @@ if (dir_exist_7)
         fprintf('ml-10m.zip unzipped. \n');
 end
 
-%% read rating.dat;
+%% read rating.dat; 
 %%%   This data reading part is from read_movielens_10M.m file of InFaceExtendedFW-MatrixCompletion
 M = dlmread('ml-10m/ml-10M100K/ratings.dat');
 
@@ -83,13 +89,9 @@ mat_comp_instance.irow_test = test_data.irow;
 mat_comp_instance.jcol_test = test_data.jcol;
 
 %% value of sigma in the models; named as delta in Freund's paper and codes
-mat_comp_instance.delta = 2.5932;
+mat_comp_instance.delta = sigma;       
 
-%% run the algorithms
-time_limit = 3600;          % maximum cputime
-a = clock;
-
-%%% The InFace direction method
+%% The InFace direction method 
 options = struct();
 options.verbose = 1;
 options.rel_opt_TOL = -Inf;
@@ -120,20 +122,17 @@ tstart1 = tic;
 [final_solnIF_0Inf, historyIF_0Inf] = InFace_Extended_FW_sparse(mat_comp_instance, @Away_step_standard_sparse, @update_svd, options);
 t_IF_0Inf = toc(tstart1);
 
-matfilename_IF = ['results_IF_time_limit' '-' int2str(options.time_limit) '-date-' date '-' int2str(a(4)) '-' int2str(a(5)) '.mat'];
-save(matfilename_IF,  'time_limit',  'final_solnIF_0Inf', 'historyIF_0Inf', 't_IF_0Inf');
 
-%%% The nonconvex FW and AFW methods
+a = clock;
+datname = ['InFaceResults_movielens_10M'  '_'  'timelimit' num2str(time_limit) '_date' date '-' int2str(a(4)) '-' int2str(a(5)) '.mat'];
+save(datname, 'final_solnIF_0Inf', 'historyIF_0Inf', 't_IF_0Inf');
+
+
+%% The nonconvex FW and AFW method
 clear options
 m = 69878;
 n = 10677;
 
-X_train_vec = mat_comp_instance.X_obs_vec;
-irow_obs = mat_comp_instance.irow;
-jcol_obs = mat_comp_instance.jcol;
-
-mu = 0.5;
-sigma = 2.5932;
 
 options = struct();
 options.tol = 1e-6;
@@ -157,40 +156,58 @@ tstart3 = tic;
 [Xk_afw_bst, iter_afw_bst, fval_afw_bst, history_afw_bst] = FW_nuc(mat_comp_instance, m, n, mu, sigma, options);
 t_afw_bst = toc(tstart3);
 
-matfilename_FW = ['results_FW_time_limit' '-' int2str(options.maxtime) '-date' date '-' int2str(a(4)) '-' int2str(a(5)) '.mat'];
-save(matfilename_FW, 'time_limit',  'Xk_fw_bst' , 'Xk_afw_bst', 'iter_fw_bst', 'iter_afw_bst', 'fval_fw_bst', ...
-    'fval_afw_bst', 'history_fw_bst',  'history_afw_bst',  't_fw_bst',  't_afw_bst');
 
-%% form the table
-fname = ['Results\run-table'  '-'  date  '-'  int2str(a(4))  '-'  int2str(a(5))  '.txt'];
-fid = fopen(fname, 'w');
-fprintf(fid, ' %6s & %20s & %20s & %20s \n', ...
-    ' ', ' IF-(0,inf)', 'FW-ncvx', 'AFW-ncvx');
-fprintf(fid, ' %6s & %8s & %8s & %8s & %8s & %8s & %8s & %8s & %8s & %8s  \\\\ \n', ...
-    'time_ub',  'gap_rel', 'rank', 'RMSE', 'gap_rel', 'rank', 'RMSE', 'gap_rel', 'rank', 'RMSE');
+a = clock;
+datname = ['FWandAFWResults_movielens_10M_mu'   num2str(mu*100) '_'  'timelimit' num2str(time_limit) '_date' date '-' int2str(a(4)) '-' int2str(a(5)) '.mat'];
+save(datname, 'Xk_fw_bst',  'Xk_afw_bst', 'iter_fw_bst', 'iter_afw_bst', 'fval_fw_bst', 'fval_afw_bst', 'history_fw_bst', 'history_afw_bst', 't_fw_bst', 't_afw_bst','scale');
 
-timeframes = [1000; 1500; 2000; 2500; 3000];
 
-for tt = 1:length(timeframes)
-    time_ub =  timeframes(tt);
-    
-    iter_IF_up = sum(historyIF_0Inf.cputimes(1:historyIF_0Inf.num_iters) <= time_ub);         % the iter number before reaching the time limit
-    iter_fw_up = sum(history_fw_bst.cputimes <= time_ub);
-    iter_afw_up = sum(history_afw_bst.cputimes <= time_ub);
-    
-    RMSE_IF_0Inf = sqrt( historyIF_0Inf.test_set_errors(iter_IF_up) *2*scale^2 /  length(mat_comp_instance.X_test_vec) );% compute the root mean squared error
-    RMSE_fw = sqrt( history_fw_bst.test_errs(iter_fw_up) *2*scale^2 /  length(mat_comp_instance.X_test_vec) );
-    RMSE_afw = sqrt( history_afw_bst.test_errs(iter_afw_up) *2*scale^2 /  length(mat_comp_instance.X_test_vec) );
-    
-    gap_rel_IF = historyIF_0Inf.bound_gaps_nooffset(iter_IF_up)/historyIF_0Inf.lowerbnds(iter_IF_up);
-    gap_rel_fw = history_fw_bst.fw_gaps_rel(iter_fw_up);
-    gap_rel_afw = history_afw_bst.fw_gaps_rel(iter_afw_up);
-    
-    data_tt = [time_ub, gap_rel_IF, historyIF_0Inf.ranks(iter_IF_up), RMSE_IF_0Inf,...
-        gap_rel_fw, history_fw_bst.ranks(iter_fw_up),RMSE_fw,...
-        gap_rel_afw, history_afw_bst.ranks(iter_afw_up),RMSE_afw];
-    fprintf(fid, '%d &  %5.1e &  %5d & %6.4f &  %5.1e &  %5d & %6.4f &   %5.1e &  %5d & %6.4f   \\\\ \n', data_tt);
-    
+%% plot sum squared error on training set and testing set
+iterscosts_fw = history_fw_bst.cputimes;
+iterscosts_afw = history_afw_bst.cputimes;
+iterscosts_IF = historyIF_0Inf.cputimes(1:historyIF_0Inf.num_iters);
+
+fvals_fw = history_fw_bst.fvals;
+fvals_afw = history_afw_bst.fvals;
+fvals_IF = historyIF_0Inf.objvals(1:historyIF_0Inf.num_iters);
+
+test_errs_fw = history_fw_bst.test_errs;
+test_errs_afw = history_afw_bst.test_errs;
+test_errs_IF = historyIF_0Inf.test_set_errors(1:historyIF_0Inf.num_iters);
+
+fig1 = figure;
+plot(iterscosts_fw, fvals_fw, '-', 'Color', [0.9290 0.6940 0.1250], 'LineWidth', 2); hold on
+plot(iterscosts_afw, fvals_afw, '-', 'Color', [174 221 129]/255,'LineWidth', 2); hold on
+plot(iterscosts_IF, fvals_IF, '-', 'Color', [146 172 209]/255, 'LineWidth', 2); 
+legend('trainErr-FW', 'trainErr-AFW', 'trainErr-IF');
+y_max = max([max(fvals_fw), max(fvals_afw), max(fvals_IF)]);
+y_min = min([min(fvals_fw), min(fvals_afw), min(fvals_IF)]);
+yaxis_up = y_max + (y_max - y_min)/100;
+yaxis_bottom = y_min - (y_max - y_min)/100;
+axis([0 options.maxtime yaxis_bottom yaxis_up])
+xlabel('time(s)');
+ylabel('Train Error')
+a = clock;
+figname = ['movielens_10M-trainingErrs-mu' num2str(mu*100)  '-' date '-' num2str(a(4)) '-'  num2str(a(5))];
+savefig(fig1, figname, 'Figures');
+
+fig2 = figure;
+plot(iterscosts_fw, test_errs_fw, '-', 'Color', [147, 147, 145]/255,'LineWidth', 2); hold on
+plot(iterscosts_afw, test_errs_afw, '-', 'Color', [238,130,238]/255, 'LineWidth', 2); hold on
+plot(iterscosts_IF, test_errs_IF, '-', 'Color', [226, 17, 0]/255, 'LineWidth', 2); hold off
+legend( 'testErr-FW', 'testErr-AFW', 'testErr-IF');
+y_max = max([max(test_errs_fw), max(test_errs_afw), max(test_errs_IF)]);
+y_min = min([min(test_errs_fw), min(test_errs_afw), min(test_errs_IF)]);
+yaxis_up = y_max + (y_max - y_min)/100;
+yaxis_bottom = y_min - (y_max - y_min)/100;
+axis([0 options.maxtime yaxis_bottom yaxis_up])
+xlabel('time(s)');
+ylabel('Test Error')
+a = clock;
+figname = ['movielens_10M-testErrs-mu'  num2str(mu*100) '-' date '-' num2str(a(4)) '-'  num2str(a(5))];
+savefig(fig2, figname, 'Figures');
+close all;
+
+
 end
-fclose(fid);
 
