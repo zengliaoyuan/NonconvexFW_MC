@@ -45,6 +45,6 @@ A paper presenting more details on the implementations can be found here:
 **awstep_nuc**: Subroutine of the away-step oracle<br />
 **eigifp**: A solver computes the smallest (largest) eigenvalue of a generalized eigenvalue problem and is downloaded here: [eigifp](https://www.ms.uky.edu/~qye/software.html) <br />
 **update_svd_asIF**: Rank-one SVD updation; this is a part of the 'update_svd' file in the InFaceExtendedFW-MatrixCompletion solver<br />
-**find_delta_asIF**: A cross-validation routine for learning $\delta$ of the constraint $\|X\|_*\leq \delta$ in the InFaceExtendedFW-MatrixCompletion; Take $sigma:=delta$ in $\|X\|_*-\mu\|X\|_F\leq \sigma$ for all datasets
+**find_delta_asIF**: A cross-validation routine for learning $\delta$ of the nuclear norm constraint in the InFaceExtendedFW-MatrixCompletion. Here take $\sigma:=\delta$ in $||X|_*-\mu||X||_F\leq \sigma$ for all datasets<br />
 **savefig**: Subroutine for saving figures in 'run_all_datasets'
 
