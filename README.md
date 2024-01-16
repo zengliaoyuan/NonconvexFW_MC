@@ -26,7 +26,7 @@ A paper presenting more details on the implementations can be found here:
 **Remark**: Our coding are done with Matlab 2022b for Windows. One has to change the formats of the path names involved in the package if using Matlab for other operating systems.
 
 
-### Runcodes for comparing FW, AFW and the InFaceExtendedFW-MatrixCompletion with datasets MovieLens10M, MovieLens20M, MovieLens32M and Netflix Prize
+### Runcodes for comparing FW, AFW and the InFaceExtendedFW-MatrixCompletion
 
 
 **run_all_datasets**: Runcode for generating the table and figures in the numerical experiments of the paper<br />
